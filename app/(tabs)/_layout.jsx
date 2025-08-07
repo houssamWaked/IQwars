@@ -1,18 +1,30 @@
 import { Tabs } from 'expo-router';
 import { Chrome as Home, Play, Trophy, User } from 'lucide-react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#8B5CF6',
         tabBarInactiveTintColor: '#6B7280',
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            paddingBottom: insets.bottom + 10, // add safe area inset + padding
+            height: 60 + insets.bottom, // base height + safe area
+            position: Platform.OS === 'ios' ? 'absolute' : 'relative', // absolute only on iOS
+          },
+        ],
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.tabBarLabel,
-      }}>
+        tabBarHideOnKeyboard: true,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
@@ -58,9 +70,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    paddingBottom: 8,
     paddingTop: 8,
-    height: 70,
   },
   tabBarItem: {
     paddingTop: 4,

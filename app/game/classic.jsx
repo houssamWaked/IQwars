@@ -1,121 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Clock, X, Check, Zap } from 'lucide-react-native';
+import { Brain, X, Check, CircleHelp as HelpCircle, Eye, SkipForward } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-const { width } = Dimensions.get('window');
-
-type Question = {
-  id: number;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  category: string;
-};
-
-const SAMPLE_QUESTIONS: Question[] = [
+const SAMPLE_QUESTIONS = [
   {
     id: 1,
-    question: "What is the capital of France?",
-    options: ["London", "Berlin", "Paris", "Madrid"],
+    question: "What is the capital of Australia?",
+    options: ["Sydney", "Melbourne", "Canberra", "Perth"],
     correctAnswer: 2,
-    category: "Geography"
+    hint: "It's not the largest city, but the political center.",
+    difficulty: 'easy'
   },
   {
     id: 2,
-    question: "Which planet is known as the Red Planet?",
-    options: ["Venus", "Mars", "Jupiter", "Saturn"],
+    question: "Who wrote the novel '1984'?",
+    options: ["Aldous Huxley", "George Orwell", "Ray Bradbury", "Kurt Vonnegut"],
     correctAnswer: 1,
-    category: "Science"
+    hint: "He also wrote 'Animal Farm'.",
+    difficulty: 'medium'
   },
   {
     id: 3,
-    question: "Who painted the Mona Lisa?",
-    options: ["Van Gogh", "Picasso", "Leonardo da Vinci", "Michelangelo"],
+    question: "What is the chemical symbol for gold?",
+    options: ["Go", "Gd", "Au", "Ag"],
     correctAnswer: 2,
-    category: "Art"
-  },
-  {
-    id: 4,
-    question: "What is the largest mammal in the world?",
-    options: ["Elephant", "Blue Whale", "Giraffe", "Hippopotamus"],
-    correctAnswer: 1,
-    category: "Nature"
-  },
-  {
-    id: 5,
-    question: "Which year did the first iPhone release?",
-    options: ["2005", "2006", "2007", "2008"],
-    correctAnswer: 2,
-    category: "Technology"
+    hint: "From the Latin word 'aurum'.",
+    difficulty: 'hard'
   },
 ];
 
-export default function SixtySecondGame() {
+export default function ClassicGame() {
   const router = useRouter();
-  const [gameState, setGameState] = useState<'waiting' | 'playing' | 'finished'>('waiting');
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [gameState, setGameState] = useState('waiting');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [questions] = useState(SAMPLE_QUESTIONS);
+  const [showHint, setShowHint] = useState(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState([]);
+  const [lifelines, setLifelines] = useState([
+    { id: 'fifty', name: '50/50', icon: Eye, used: false, description: 'Remove two wrong answers' },
+    { id: 'hint', name: 'Hint', icon: HelpCircle, used: false, description: 'Get a helpful hint' },
+    { id: 'skip', name: 'Skip', icon: SkipForward, used: false, description: 'Skip this question' },
+  ]);
 
   const currentQuestion = questions[currentQuestionIndex];
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (gameState === 'playing' && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setGameState('finished');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => clearInterval(interval);
-  }, [gameState, timeLeft]);
-
   const startGame = () => {
     setGameState('playing');
-    setTimeLeft(60);
     setScore(0);
     setCorrectAnswers(0);
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setShowFeedback(false);
+    setShowHint(false);
+    setEliminatedOptions([]);
+    setLifelines(lifelines.map(l => ({ ...l, used: false })));
   };
 
-  const selectAnswer = (answerIndex: number) => {
+  const selectAnswer = (answerIndex) => {
     if (selectedAnswer !== null || showFeedback) return;
-    
+
     setSelectedAnswer(answerIndex);
     setShowFeedback(true);
-    
+
     const isCorrect = answerIndex === currentQuestion.correctAnswer;
     if (isCorrect) {
       setCorrectAnswers(prev => prev + 1);
-      setScore(prev => prev + (timeLeft > 30 ? 100 : timeLeft > 10 ? 75 : 50));
+      const difficultyMultiplier = currentQuestion.difficulty === 'easy' ? 100 : 
+                                   currentQuestion.difficulty === 'medium' ? 150 : 200;
+      setScore(prev => prev + difficultyMultiplier);
     }
 
     setTimeout(() => {
-      nextQuestion();
-    }, 1500);
+      if (currentQuestionIndex + 1 >= questions.length) {
+        setGameState('finished');
+      } else {
+        nextQuestion();
+      }
+    }, 2000);
   };
 
   const nextQuestion = () => {
-    const nextIndex = (currentQuestionIndex + 1) % questions.length;
-    setCurrentQuestionIndex(nextIndex);
+    setCurrentQuestionIndex(prev => prev + 1);
     setSelectedAnswer(null);
     setShowFeedback(false);
+    setShowHint(false);
+    setEliminatedOptions([]);
+  };
+
+  const useLifeline = (lifelineId) => {
+    const lifeline = lifelines.find(l => l.id === lifelineId);
+    if (!lifeline || lifeline.used) return;
+
+    setLifelines(prev => prev.map(l => 
+      l.id === lifelineId ? { ...l, used: true } : l
+    ));
+
+    switch (lifelineId) {
+      case 'fifty':
+        const wrongAnswers = currentQuestion.options
+          .map((_, index) => index)
+          .filter(index => index !== currentQuestion.correctAnswer);
+        const toEliminate = wrongAnswers.slice(0, 2);
+        setEliminatedOptions(toEliminate);
+        break;
+      case 'hint':
+        setShowHint(true);
+        break;
+      case 'skip':
+        if (currentQuestionIndex + 1 >= questions.length) {
+          setGameState('finished');
+        } else {
+          nextQuestion();
+        }
+        break;
+    }
   };
 
   const quitGame = () => {
@@ -126,11 +131,21 @@ export default function SixtySecondGame() {
     startGame();
   };
 
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty) {
+      case 'easy': return '#10B981';
+      case 'medium': return '#F59E0B';
+      case 'hard': return '#EF4444';
+      default: return '#6B7280';
+    }
+  };
+
+
   if (gameState === 'waiting') {
     return (
       <SafeAreaView style={styles.container}>
         <LinearGradient
-          colors={['#EF4444', '#F87171']}
+          colors={['#3B82F6', '#60A5FA']}
           style={styles.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -141,22 +156,27 @@ export default function SixtySecondGame() {
 
           <View style={styles.centerContent}>
             <View style={styles.gameIcon}>
-              <Clock size={64} color="#FFF" strokeWidth={2} />
+              <Brain size={64} color="#FFF" strokeWidth={2} />
             </View>
-            <Text style={styles.gameTitle}>60-Second Challenge</Text>
+            <Text style={styles.gameTitle}>Classic Quiz</Text>
             <Text style={styles.gameDescription}>
-              Answer as many questions as possible in 60 seconds!
+              Answer questions with the help of lifelines
             </Text>
             
-            <View style={styles.rulesContainer}>
-              <Text style={styles.rulesTitle}>Rules:</Text>
-              <Text style={styles.ruleText}>• Answer quickly for bonus points</Text>
-              <Text style={styles.ruleText}>• Correct answers increase your score</Text>
-              <Text style={styles.ruleText}>• Questions get more challenging</Text>
+            <View style={styles.lifelinesPreview}>
+              <Text style={styles.lifelinesTitle}>Available Lifelines:</Text>
+              {lifelines.map((lifeline) => (
+                <View key={lifeline.id} style={styles.lifelinePreviewItem}>
+                  <lifeline.icon size={20} color="#FFF" strokeWidth={2} />
+                  <Text style={styles.lifelinePreviewText}>
+                    {lifeline.name}: {lifeline.description}
+                  </Text>
+                </View>
+              ))}
             </View>
 
             <TouchableOpacity style={styles.startButton} onPress={startGame}>
-              <Text style={styles.startButtonText}>Start Challenge</Text>
+              <Text style={styles.startButtonText}>Start Quiz</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -165,7 +185,7 @@ export default function SixtySecondGame() {
   }
 
   if (gameState === 'finished') {
-    const accuracy = questions.length > 0 ? Math.round((correctAnswers / Math.max(currentQuestionIndex + 1, 1)) * 100) : 0;
+    const accuracy = Math.round((correctAnswers / questions.length) * 100);
     
     return (
       <SafeAreaView style={styles.container}>
@@ -177,9 +197,9 @@ export default function SixtySecondGame() {
         >
           <View style={styles.centerContent}>
             <View style={styles.gameIcon}>
-              <Zap size={64} color="#FFF" strokeWidth={2} />
+              <Brain size={64} color="#FFF" strokeWidth={2} />
             </View>
-            <Text style={styles.gameTitle}>Time's Up!</Text>
+            <Text style={styles.gameTitle}>Quiz Complete!</Text>
             
             <View style={styles.resultsContainer}>
               <View style={styles.resultCard}>
@@ -189,7 +209,7 @@ export default function SixtySecondGame() {
               
               <View style={styles.resultCard}>
                 <Text style={styles.resultLabel}>Correct Answers</Text>
-                <Text style={styles.resultValue}>{correctAnswers}</Text>
+                <Text style={styles.resultValue}>{correctAnswers}/{questions.length}</Text>
               </View>
               
               <View style={styles.resultCard}>
@@ -216,7 +236,7 @@ export default function SixtySecondGame() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#EF4444', '#F87171']}
+        colors={['#3B82F6', '#60A5FA']}
         style={styles.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -227,9 +247,10 @@ export default function SixtySecondGame() {
             <X size={24} color="#FFF" strokeWidth={2} />
           </TouchableOpacity>
           
-          <View style={styles.timerContainer}>
-            <Clock size={20} color="#FFF" strokeWidth={2} />
-            <Text style={styles.timerText}>{timeLeft}s</Text>
+          <View style={styles.progressContainer}>
+            <Text style={styles.progressText}>
+              {currentQuestionIndex + 1} / {questions.length}
+            </Text>
           </View>
           
           <View style={styles.scoreContainer}>
@@ -237,20 +258,39 @@ export default function SixtySecondGame() {
           </View>
         </View>
 
-        {/* Progress */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${((60 - timeLeft) / 60) * 100}%` }]} />
-          </View>
-          <Text style={styles.progressText}>Question {currentQuestionIndex + 1}</Text>
+        {/* Lifelines */}
+        <View style={styles.lifelinesContainer}>
+          {lifelines.map((lifeline) => (
+            <TouchableOpacity
+              key={lifeline.id}
+              style={[styles.lifelineButton, lifeline.used && styles.usedLifeline]}
+              onPress={() => useLifeline(lifeline.id)}
+              disabled={lifeline.used || showFeedback}
+            >
+              <lifeline.icon 
+                size={20} 
+                color={lifeline.used ? "#9CA3AF" : "#FFF"} 
+                strokeWidth={2} 
+              />
+              <Text style={[styles.lifelineText, lifeline.used && styles.usedLifelineText]}>
+                {lifeline.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Question */}
         <View style={styles.questionContainer}>
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{currentQuestion.category}</Text>
+          <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(currentQuestion.difficulty) }]}>
+            <Text style={styles.difficultyText}>{currentQuestion.difficulty.toUpperCase()}</Text>
           </View>
           <Text style={styles.questionText}>{currentQuestion.question}</Text>
+          {showHint && (
+            <View style={styles.hintContainer}>
+              <HelpCircle size={16} color="#F59E0B" strokeWidth={2} />
+              <Text style={styles.hintText}>{currentQuestion.hint}</Text>
+            </View>
+          )}
         </View>
 
         {/* Options */}
@@ -258,6 +298,11 @@ export default function SixtySecondGame() {
           {currentQuestion.options.map((option, index) => {
             let optionStyle = styles.optionButton;
             let textStyle = styles.optionText;
+            
+            if (eliminatedOptions.includes(index)) {
+              optionStyle = [styles.optionButton, styles.eliminatedOption];
+              textStyle = [styles.optionText, styles.eliminatedOptionText];
+            }
             
             if (showFeedback && selectedAnswer !== null) {
               if (index === currentQuestion.correctAnswer) {
@@ -274,7 +319,7 @@ export default function SixtySecondGame() {
                 key={index}
                 style={optionStyle}
                 onPress={() => selectAnswer(index)}
-                disabled={showFeedback}
+                disabled={showFeedback || eliminatedOptions.includes(index)}
               >
                 <Text style={textStyle}>{option}</Text>
                 {showFeedback && index === currentQuestion.correctAnswer && (
@@ -300,16 +345,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   closeButton: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1,
   },
   centerContent: {
     flex: 1,
@@ -340,23 +381,28 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     fontWeight: '500',
   },
-  rulesContainer: {
+  lifelinesPreview: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 32,
     width: '100%',
   },
-  rulesTitle: {
+  lifelinesTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFF',
     marginBottom: 12,
   },
-  ruleText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+  lifelinePreviewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  lifelinePreviewText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginLeft: 8,
     fontWeight: '500',
   },
   startButton: {
@@ -373,7 +419,7 @@ const styles = StyleSheet.create({
   startButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#EF4444',
+    color: '#3B82F6',
   },
   header: {
     flexDirection: 'row',
@@ -383,19 +429,16 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
   },
-  timerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  progressContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  timerText: {
-    fontSize: 18,
+  progressText: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
-    marginLeft: 8,
   },
   scoreContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -404,47 +447,52 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   scoreText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
   },
-  progressContainer: {
+  lifelinesContainer: {
+    flexDirection: 'row',
     paddingHorizontal: 20,
     marginBottom: 20,
+    gap: 10,
   },
-  progressBar: {
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 8,
+  lifelineButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#FFF',
-    borderRadius: 3,
+  usedLifeline: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    opacity: 0.5,
   },
-  progressText: {
-    fontSize: 14,
+  lifelineText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
+    color: '#FFF',
+    marginLeft: 4,
+  },
+  usedLifelineText: {
+    color: '#9CA3AF',
   },
   questionContainer: {
     paddingHorizontal: 20,
     marginBottom: 32,
     alignItems: 'center',
   },
-  categoryBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  difficultyBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 16,
   },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '600',
+  difficultyText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#FFF',
   },
   questionText: {
@@ -453,6 +501,24 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
     lineHeight: 32,
+    marginBottom: 16,
+  },
+  hintContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+  },
+  hintText: {
+    fontSize: 14,
+    color: '#FFF',
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
   },
   optionsContainer: {
     paddingHorizontal: 20,
@@ -472,6 +538,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  eliminatedOption: {
+    backgroundColor: '#F3F4F6',
+    opacity: 0.5,
+  },
   correctOption: {
     backgroundColor: '#DCFCE7',
     borderColor: '#10B981',
@@ -487,6 +557,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     flex: 1,
+  },
+  eliminatedOptionText: {
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
   },
   correctOptionText: {
     color: '#047857',

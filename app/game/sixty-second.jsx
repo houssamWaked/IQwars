@@ -1,144 +1,113 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Brain, X, Check, CircleHelp as HelpCircle, Eye, SkipForward } from 'lucide-react-native';
+import { Clock, X, Check, Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-type Question = {
-  id: number;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  hint: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-};
+const { width } = Dimensions.get('window');
 
-const SAMPLE_QUESTIONS: Question[] = [
+const SAMPLE_QUESTIONS = [
   {
     id: 1,
-    question: "What is the capital of Australia?",
-    options: ["Sydney", "Melbourne", "Canberra", "Perth"],
+    question: "What is the capital of France?",
+    options: ["London", "Berlin", "Paris", "Madrid"],
     correctAnswer: 2,
-    hint: "It's not the largest city, but the political center.",
-    difficulty: 'easy'
+    category: "Geography"
   },
   {
     id: 2,
-    question: "Who wrote the novel '1984'?",
-    options: ["Aldous Huxley", "George Orwell", "Ray Bradbury", "Kurt Vonnegut"],
+    question: "Which planet is known as the Red Planet?",
+    options: ["Venus", "Mars", "Jupiter", "Saturn"],
     correctAnswer: 1,
-    hint: "He also wrote 'Animal Farm'.",
-    difficulty: 'medium'
+    category: "Science"
   },
   {
     id: 3,
-    question: "What is the chemical symbol for gold?",
-    options: ["Go", "Gd", "Au", "Ag"],
+    question: "Who painted the Mona Lisa?",
+    options: ["Van Gogh", "Picasso", "Leonardo da Vinci", "Michelangelo"],
     correctAnswer: 2,
-    hint: "From the Latin word 'aurum'.",
-    difficulty: 'hard'
+    category: "Art"
+  },
+  {
+    id: 4,
+    question: "What is the largest mammal in the world?",
+    options: ["Elephant", "Blue Whale", "Giraffe", "Hippopotamus"],
+    correctAnswer: 1,
+    category: "Nature"
+  },
+  {
+    id: 5,
+    question: "Which year did the first iPhone release?",
+    options: ["2005", "2006", "2007", "2008"],
+    correctAnswer: 2,
+    category: "Technology"
   },
 ];
 
-type Lifeline = {
-  id: string;
-  name: string;
-  icon: any;
-  used: boolean;
-  description: string;
-};
-
-export default function ClassicGame() {
+export default function SixtySecondGame() {
   const router = useRouter();
-  const [gameState, setGameState] = useState<'waiting' | 'playing' | 'finished'>('waiting');
+  const [gameState, setGameState] = useState('waiting'); // 'waiting' | 'playing' | 'finished'
+  const [timeLeft, setTimeLeft] = useState(60);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [questions] = useState(SAMPLE_QUESTIONS);
-  const [showHint, setShowHint] = useState(false);
-  const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
-  
-  const [lifelines, setLifelines] = useState<Lifeline[]>([
-    { id: 'fifty', name: '50/50', icon: Eye, used: false, description: 'Remove two wrong answers' },
-    { id: 'hint', name: 'Hint', icon: HelpCircle, used: false, description: 'Get a helpful hint' },
-    { id: 'skip', name: 'Skip', icon: SkipForward, used: false, description: 'Skip this question' },
-  ]);
 
   const currentQuestion = questions[currentQuestionIndex];
 
+  useEffect(() => {
+    let interval;
+
+    if (gameState === 'playing' && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setGameState('finished');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [gameState, timeLeft]);
+
   const startGame = () => {
     setGameState('playing');
+    setTimeLeft(60);
     setScore(0);
     setCorrectAnswers(0);
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setShowFeedback(false);
-    setShowHint(false);
-    setEliminatedOptions([]);
-    setLifelines(lifelines.map(l => ({ ...l, used: false })));
   };
 
-  const selectAnswer = (answerIndex: number) => {
+  const selectAnswer = (answerIndex) => {
     if (selectedAnswer !== null || showFeedback) return;
-    
+
     setSelectedAnswer(answerIndex);
     setShowFeedback(true);
-    
+
     const isCorrect = answerIndex === currentQuestion.correctAnswer;
     if (isCorrect) {
       setCorrectAnswers(prev => prev + 1);
-      const difficultyMultiplier = currentQuestion.difficulty === 'easy' ? 100 : 
-                                   currentQuestion.difficulty === 'medium' ? 150 : 200;
-      setScore(prev => prev + difficultyMultiplier);
+      setScore(prev => prev + (timeLeft > 30 ? 100 : timeLeft > 10 ? 75 : 50));
     }
 
     setTimeout(() => {
-      if (currentQuestionIndex + 1 >= questions.length) {
-        setGameState('finished');
-      } else {
-        nextQuestion();
-      }
-    }, 2000);
+      nextQuestion();
+    }, 1500);
   };
 
   const nextQuestion = () => {
-    setCurrentQuestionIndex(prev => prev + 1);
+    const nextIndex = (currentQuestionIndex + 1) % questions.length;
+    setCurrentQuestionIndex(nextIndex);
     setSelectedAnswer(null);
     setShowFeedback(false);
-    setShowHint(false);
-    setEliminatedOptions([]);
-  };
-
-  const useLifeline = (lifelineId: string) => {
-    const lifeline = lifelines.find(l => l.id === lifelineId);
-    if (!lifeline || lifeline.used) return;
-
-    setLifelines(prev => prev.map(l => 
-      l.id === lifelineId ? { ...l, used: true } : l
-    ));
-
-    switch (lifelineId) {
-      case 'fifty':
-        const wrongAnswers = currentQuestion.options
-          .map((_, index) => index)
-          .filter(index => index !== currentQuestion.correctAnswer);
-        const toEliminate = wrongAnswers.slice(0, 2);
-        setEliminatedOptions(toEliminate);
-        break;
-      case 'hint':
-        setShowHint(true);
-        break;
-      case 'skip':
-        if (currentQuestionIndex + 1 >= questions.length) {
-          setGameState('finished');
-        } else {
-          nextQuestion();
-        }
-        break;
-    }
   };
 
   const quitGame = () => {
@@ -149,20 +118,11 @@ export default function ClassicGame() {
     startGame();
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy': return '#10B981';
-      case 'medium': return '#F59E0B';
-      case 'hard': return '#EF4444';
-      default: return '#6B7280';
-    }
-  };
-
   if (gameState === 'waiting') {
     return (
       <SafeAreaView style={styles.container}>
         <LinearGradient
-          colors={['#3B82F6', '#60A5FA']}
+          colors={['#EF4444', '#F87171']}
           style={styles.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -173,27 +133,22 @@ export default function ClassicGame() {
 
           <View style={styles.centerContent}>
             <View style={styles.gameIcon}>
-              <Brain size={64} color="#FFF" strokeWidth={2} />
+              <Clock size={64} color="#FFF" strokeWidth={2} />
             </View>
-            <Text style={styles.gameTitle}>Classic Quiz</Text>
+            <Text style={styles.gameTitle}>60-Second Challenge</Text>
             <Text style={styles.gameDescription}>
-              Answer questions with the help of lifelines
+              Answer as many questions as possible in 60 seconds!
             </Text>
-            
-            <View style={styles.lifelinesPreview}>
-              <Text style={styles.lifelinesTitle}>Available Lifelines:</Text>
-              {lifelines.map((lifeline) => (
-                <View key={lifeline.id} style={styles.lifelinePreviewItem}>
-                  <lifeline.icon size={20} color="#FFF" strokeWidth={2} />
-                  <Text style={styles.lifelinePreviewText}>
-                    {lifeline.name}: {lifeline.description}
-                  </Text>
-                </View>
-              ))}
+
+            <View style={styles.rulesContainer}>
+              <Text style={styles.rulesTitle}>Rules:</Text>
+              <Text style={styles.ruleText}>• Answer quickly for bonus points</Text>
+              <Text style={styles.ruleText}>• Correct answers increase your score</Text>
+              <Text style={styles.ruleText}>• Questions get more challenging</Text>
             </View>
 
             <TouchableOpacity style={styles.startButton} onPress={startGame}>
-              <Text style={styles.startButtonText}>Start Quiz</Text>
+              <Text style={styles.startButtonText}>Start Challenge</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -202,8 +157,8 @@ export default function ClassicGame() {
   }
 
   if (gameState === 'finished') {
-    const accuracy = Math.round((correctAnswers / questions.length) * 100);
-    
+    const accuracy = questions.length > 0 ? Math.round((correctAnswers / Math.max(currentQuestionIndex + 1, 1)) * 100) : 0;
+
     return (
       <SafeAreaView style={styles.container}>
         <LinearGradient
@@ -214,21 +169,21 @@ export default function ClassicGame() {
         >
           <View style={styles.centerContent}>
             <View style={styles.gameIcon}>
-              <Brain size={64} color="#FFF" strokeWidth={2} />
+              <Zap size={64} color="#FFF" strokeWidth={2} />
             </View>
-            <Text style={styles.gameTitle}>Quiz Complete!</Text>
-            
+            <Text style={styles.gameTitle}>Time's Up!</Text>
+
             <View style={styles.resultsContainer}>
               <View style={styles.resultCard}>
                 <Text style={styles.resultLabel}>Final Score</Text>
                 <Text style={styles.resultValue}>{score}</Text>
               </View>
-              
+
               <View style={styles.resultCard}>
                 <Text style={styles.resultLabel}>Correct Answers</Text>
-                <Text style={styles.resultValue}>{correctAnswers}/{questions.length}</Text>
+                <Text style={styles.resultValue}>{correctAnswers}</Text>
               </View>
-              
+
               <View style={styles.resultCard}>
                 <Text style={styles.resultLabel}>Accuracy</Text>
                 <Text style={styles.resultValue}>{accuracy}%</Text>
@@ -239,7 +194,7 @@ export default function ClassicGame() {
               <TouchableOpacity style={styles.playAgainButton} onPress={playAgain}>
                 <Text style={styles.playAgainButtonText}>Play Again</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.homeButton} onPress={quitGame}>
                 <Text style={styles.homeButtonText}>Home</Text>
               </TouchableOpacity>
@@ -253,7 +208,7 @@ export default function ClassicGame() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#3B82F6', '#60A5FA']}
+        colors={['#EF4444', '#F87171']}
         style={styles.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -263,51 +218,31 @@ export default function ClassicGame() {
           <TouchableOpacity style={styles.closeButton} onPress={quitGame}>
             <X size={24} color="#FFF" strokeWidth={2} />
           </TouchableOpacity>
-          
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressText}>
-              {currentQuestionIndex + 1} / {questions.length}
-            </Text>
+
+          <View style={styles.timerContainer}>
+            <Clock size={20} color="#FFF" strokeWidth={2} />
+            <Text style={styles.timerText}>{timeLeft}s</Text>
           </View>
-          
+
           <View style={styles.scoreContainer}>
             <Text style={styles.scoreText}>{score}</Text>
           </View>
         </View>
 
-        {/* Lifelines */}
-        <View style={styles.lifelinesContainer}>
-          {lifelines.map((lifeline) => (
-            <TouchableOpacity
-              key={lifeline.id}
-              style={[styles.lifelineButton, lifeline.used && styles.usedLifeline]}
-              onPress={() => useLifeline(lifeline.id)}
-              disabled={lifeline.used || showFeedback}
-            >
-              <lifeline.icon 
-                size={20} 
-                color={lifeline.used ? "#9CA3AF" : "#FFF"} 
-                strokeWidth={2} 
-              />
-              <Text style={[styles.lifelineText, lifeline.used && styles.usedLifelineText]}>
-                {lifeline.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        {/* Progress */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${((60 - timeLeft) / 60) * 100}%` }]} />
+          </View>
+          <Text style={styles.progressText}>Question {currentQuestionIndex + 1}</Text>
         </View>
 
         {/* Question */}
         <View style={styles.questionContainer}>
-          <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(currentQuestion.difficulty) }]}>
-            <Text style={styles.difficultyText}>{currentQuestion.difficulty.toUpperCase()}</Text>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>{currentQuestion.category}</Text>
           </View>
           <Text style={styles.questionText}>{currentQuestion.question}</Text>
-          {showHint && (
-            <View style={styles.hintContainer}>
-              <HelpCircle size={16} color="#F59E0B" strokeWidth={2} />
-              <Text style={styles.hintText}>{currentQuestion.hint}</Text>
-            </View>
-          )}
         </View>
 
         {/* Options */}
@@ -315,12 +250,7 @@ export default function ClassicGame() {
           {currentQuestion.options.map((option, index) => {
             let optionStyle = styles.optionButton;
             let textStyle = styles.optionText;
-            
-            if (eliminatedOptions.includes(index)) {
-              optionStyle = [styles.optionButton, styles.eliminatedOption];
-              textStyle = [styles.optionText, styles.eliminatedOptionText];
-            }
-            
+
             if (showFeedback && selectedAnswer !== null) {
               if (index === currentQuestion.correctAnswer) {
                 optionStyle = [styles.optionButton, styles.correctOption];
@@ -330,13 +260,13 @@ export default function ClassicGame() {
                 textStyle = [styles.optionText, styles.wrongOptionText];
               }
             }
-            
+
             return (
               <TouchableOpacity
                 key={index}
                 style={optionStyle}
                 onPress={() => selectAnswer(index)}
-                disabled={showFeedback || eliminatedOptions.includes(index)}
+                disabled={showFeedback}
               >
                 <Text style={textStyle}>{option}</Text>
                 {showFeedback && index === currentQuestion.correctAnswer && (
@@ -362,12 +292,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   closeButton: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   centerContent: {
     flex: 1,
@@ -398,28 +332,23 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     fontWeight: '500',
   },
-  lifelinesPreview: {
+  rulesContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 32,
     width: '100%',
   },
-  lifelinesTitle: {
+  rulesTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFF',
     marginBottom: 12,
   },
-  lifelinePreviewItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  lifelinePreviewText: {
-    fontSize: 14,
+  ruleText: {
+    fontSize: 16,
     color: 'rgba(255, 255, 255, 0.9)',
-    marginLeft: 8,
+    marginBottom: 8,
     fontWeight: '500',
   },
   startButton: {
@@ -436,7 +365,7 @@ const styles = StyleSheet.create({
   startButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#3B82F6',
+    color: '#EF4444',
   },
   header: {
     flexDirection: 'row',
@@ -446,16 +375,19 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
   },
-  progressContainer: {
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  progressText: {
-    fontSize: 16,
+  timerText: {
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFF',
+    marginLeft: 8,
   },
   scoreContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -464,52 +396,47 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   scoreText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFF',
   },
-  lifelinesContainer: {
-    flexDirection: 'row',
+  progressContainer: {
     paddingHorizontal: 20,
     marginBottom: 20,
-    gap: 10,
   },
-  lifelineButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 10,
-    borderRadius: 20,
+  progressBar: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 8,
   },
-  usedLifeline: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    opacity: 0.5,
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#FFF',
+    borderRadius: 3,
   },
-  lifelineText: {
-    fontSize: 12,
+  progressText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#FFF',
-    marginLeft: 4,
-  },
-  usedLifelineText: {
-    color: '#9CA3AF',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
   },
   questionContainer: {
     paddingHorizontal: 20,
     marginBottom: 32,
     alignItems: 'center',
   },
-  difficultyBadge: {
+  categoryBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 16,
   },
-  difficultyText: {
-    fontSize: 10,
-    fontWeight: '700',
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#FFF',
   },
   questionText: {
@@ -518,24 +445,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
     lineHeight: 32,
-    marginBottom: 16,
-  },
-  hintContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderColor: '#F59E0B',
-    borderWidth: 1,
-  },
-  hintText: {
-    fontSize: 14,
-    color: '#FFF',
-    fontWeight: '500',
-    marginLeft: 8,
-    flex: 1,
   },
   optionsContainer: {
     paddingHorizontal: 20,
@@ -555,10 +464,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  eliminatedOption: {
-    backgroundColor: '#F3F4F6',
-    opacity: 0.5,
-  },
   correctOption: {
     backgroundColor: '#DCFCE7',
     borderColor: '#10B981',
@@ -574,10 +479,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     flex: 1,
-  },
-  eliminatedOptionText: {
-    color: '#9CA3AF',
-    textDecorationLine: 'line-through',
   },
   correctOptionText: {
     color: '#047857',
