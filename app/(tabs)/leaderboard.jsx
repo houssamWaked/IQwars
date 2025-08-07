@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Trophy, Medal, Award, Crown, Zap } from 'lucide-react-native';
 
 export default function LeaderboardScreen() {
-  const [activeTab, setActiveTab] = useState<'weekly' | 'allTime'>('weekly');
+  const [activeTab, setActiveTab] = useState('weekly');
 
   const weeklyLeaders = [
     { rank: 1, name: 'QuizMaster99', score: 15420, level: 25, streak: 12 },
@@ -36,7 +36,7 @@ export default function LeaderboardScreen() {
   const currentData = activeTab === 'weekly' ? weeklyLeaders : allTimeLeaders;
   const userRank = { rank: 47, name: 'You', score: 8520, level: 12, streak: 5 };
 
-  const getRankIcon = (rank: number) => {
+  const getRankIcon = (rank) => {
     switch (rank) {
       case 1:
         return <Crown size={24} color="#F59E0B" strokeWidth={2} />;
@@ -49,7 +49,7 @@ export default function LeaderboardScreen() {
     }
   };
 
-  const getRankColors = (rank: number) => {
+  const getRankColors = (rank) => {
     switch (rank) {
       case 1:
         return ['#F59E0B', '#F97316'];
@@ -94,7 +94,13 @@ export default function LeaderboardScreen() {
         {/* Top 3 Podium */}
         <View style={styles.podiumContainer}>
           {currentData.slice(0, 3).map((player, index) => (
-            <View key={player.rank} style={[styles.podiumCard, { zIndex: index === 0 ? 3 : index === 1 ? 2 : 1 }]}>
+            <View
+              key={player.rank}
+              style={[
+                styles.podiumCard,
+                { zIndex: index === 0 ? 3 : index === 1 ? 2 : 1 },
+              ]}
+            >
               <LinearGradient
                 colors={getRankColors(player.rank)}
                 style={[styles.podiumGradient, index === 0 && styles.firstPlace]}
