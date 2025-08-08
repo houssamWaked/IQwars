@@ -1,72 +1,67 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const User = sequelize.define('User', {
+const Game = sequelize.define('Game', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true,
   },
-  username: {
-    type: DataTypes.STRING,
+  userId: {
+    type: DataTypes.INTEGER,
     allowNull: false,
-    unique: true,
-    validate: {
-      len: [3, 50],
+    references: {
+      model: 'users',
+      key: 'id',
     },
   },
-  email: {
-    type: DataTypes.STRING,
+  gameMode: {
+    type: DataTypes.ENUM('sixty-second', 'classic', 'story', 'multiplayer'),
     allowNull: false,
-    unique: true,
-    validate: {
-      isEmail: true,
+  },
+  categoryId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'categories',
+      key: 'id',
     },
   },
-  password: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  displayName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: 'Genius Player',
-  },
-  level: {
-    type: DataTypes.INTEGER,
-    defaultValue: 1,
-  },
-  xp: {
+  score: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
-  coins: {
+  correctAnswers: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
-  currentStreak: {
+  totalQuestions: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
-  bestStreak: {
+  timeSpent: {
+    type: DataTypes.INTEGER, // in seconds
+    defaultValue: 0,
+  },
+  xpEarned: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
-  totalGames: {
+  coinsEarned: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
-  totalCorrectAnswers: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0,
+  status: {
+    type: DataTypes.ENUM('in_progress', 'completed', 'abandoned'),
+    defaultValue: 'in_progress',
   },
-  lastPlayDate: {
+  completedAt: {
     type: DataTypes.DATE,
     allowNull: true,
   },
 }, {
-  tableName: 'users',
+  tableName: 'games',
   timestamps: true,
 });
 
-module.exports = User;
+module.exports = Game;

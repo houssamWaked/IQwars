@@ -1,57 +1,56 @@
-const Joi = require('joi');
+const { body, validationResult } = require('express-validator');
 
-const validateRegistration = (req, res, next) => {
-  const schema = Joi.object({
-    username: Joi.string().alphanum().min(3).max(30).required(),
-    email: Joi.string().email().required(),
-    password: Joi.string().min(6).required()
-  });
-
-  const { error } = schema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      message: 'Validation failed',
+      errors: errors.array(),
+    });
   }
   next();
 };
 
-const validateLogin = (req, res, next) => {
-  const schema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().required()
-  });
+const registerValidation = [
+  body('username')
+    .isLength({ min: 3, max: 50 })
+    .withMessage('Username must be between 3 and 50 characters')
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Username can only contain letters, numbers, and underscores'),
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email'),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long'),
+  body('displayName')
+    .optional()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Display name must be between 1 and 100 characters'),
+];
 
-  const { error } = schema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
-  next();
-};
+const loginValidation = [
+  body('username')
+    .notEmpty()
+    .withMessage('Username is required'),
+  body('password')
+    .notEmpty()
+    .withMessage('Password is required'),
+];
 
-const validateGameComplete = (req, res, next) => {
-  const schema = Joi.object({
-    game_mode: Joi.string().valid('60-second', 'classic', 'story').required(),
-    score: Joi.number().integer().min(0).required(),
-    correct_answers: Joi.number().integer().min(0).required(),
-    total_questions: Joi.number().integer().min(1).required(),
-    time_taken: Joi.number().integer().min(0).required(),
-    questions_answered: Joi.array().items(
-      Joi.object({
-        question_id: Joi.number().integer().required(),
-        selected_answer: Joi.number().integer().min(0).max(3).required(),
-        time_spent: Joi.number().integer().min(0).required()
-      })
-    ).required()
-  });
-
-  const { error } = schema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
-  next();
-};
+const gameValidation = [
+  body('gameMode')
+    .isIn(['sixty-second', 'classic', 'story', 'multiplayer'])
+    .withMessage('Invalid game mode'),
+  body('categoryId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Category ID must be a positive integer'),
+];
 
 module.exports = {
-  validateRegistration,
-  validateLogin,
-  validateGameComplete
+  handleValidationErrors,
+  registerValidation,
+  loginValidation,
+  gameValidation,
 };

@@ -1,19 +1,31 @@
-const express = require('express');
-const AuthController = require('../controllers/authController');
-const { validateRegistration, validateLogin } = require('../middleware/validation');
-const authenticateToken = require('../middleware/auth');
-const router = express.Router();
+const jwt = require('jsonwebtoken');
+const { User } = require('../models');
+const jwtConfig = require('../config/jwt');
 
-// Register new user
-router.post('/register', validateRegistration, AuthController.register);
+const authenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-// Login user
-router.post('/login', validateLogin, AuthController.login);
+    if (!token) {
+      return res.status(401).json({ message: 'Access token required' });
+    }
 
-// Refresh token
-router.post('/refresh', authenticateToken, AuthController.refresh);
+    const decoded = jwt.verify(token, jwtConfig.secret);
+    const user = await User.findByPk(decoded.userId, {
+      attributes: { exclude: ['password'] },
+    });
 
-// Verify token (for app startup)
-router.get('/verify', authenticateToken, AuthController.verify);
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
 
-module.exports = router;
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return res.status(403).json({ message: 'Invalid or expired token' });
+  }
+};
+
+module.exports = authenticateToken;
