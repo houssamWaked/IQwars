@@ -9,6 +9,7 @@
     "seed": "node seeders/index.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.54.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",

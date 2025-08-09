@@ -1,17 +1,49 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Mail, Lock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { register, isLoading, error, clearError } = useAuth();
+
+  const [username, setUsername] = useState(''); // changed here
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handleSignUp = async () => {
+    clearError();
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (!username.trim() || !email.trim() || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      await register({
+        username: username.trim(),
+        email: email.trim(),
+        password,
+      });
+      router.replace('/(auth)/login');
+    } catch (err) {
+      Alert.alert('Sign Up Failed', err.message || 'Something went wrong');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContent}>
-        
+
         {/* Header Section */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Create Your Account</Text>
@@ -24,8 +56,12 @@ export default function SignUpScreen() {
             <User size={20} color="#6B7280" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Full Name"
+              placeholder="Username"
               placeholderTextColor="#9CA3AF"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
           <View style={styles.inputContainer}>
@@ -36,6 +72,9 @@ export default function SignUpScreen() {
               placeholderTextColor="#9CA3AF"
               keyboardType="email-address"
               autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              autoCorrect={false}
             />
           </View>
           <View style={styles.inputContainer}>
@@ -45,6 +84,8 @@ export default function SignUpScreen() {
               placeholder="Password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry
+              value={password}
+              onChangeText={setPassword}
             />
           </View>
           <View style={styles.inputContainer}>
@@ -54,19 +95,23 @@ export default function SignUpScreen() {
               placeholder="Confirm Password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
             />
           </View>
         </View>
 
         {/* Sign Up Button */}
-        <TouchableOpacity style={styles.signUpButton} onPress={() => { /* Handle sign up logic here */ }}>
+        <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp} disabled={isLoading}>
           <LinearGradient
             colors={['#10B981', '#34D399']}
             style={styles.signUpButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Text style={styles.signUpButtonText}>Sign Up</Text>
+            <Text style={styles.signUpButtonText}>
+              {isLoading ? 'Signing Up...' : 'Sign Up'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -77,11 +122,13 @@ export default function SignUpScreen() {
             <Text style={styles.logInLink}>Log In</Text>
           </TouchableOpacity>
         </View>
-        
+
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// keep your styles the same
 
 const styles = StyleSheet.create({
   container: {

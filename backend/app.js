@@ -27,9 +27,10 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: '*',  // Allow all origins - for development only!
   credentials: true,
 }));
+
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
